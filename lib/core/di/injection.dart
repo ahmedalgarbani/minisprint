@@ -11,10 +11,15 @@ import '../../features/sprints/domain/repositories/sprint_repository.dart';
 import '../../features/sprints/domain/usecases/sprint_usecases.dart';
 import '../../features/sprints/presentation/cubit/sprint_cubit.dart';
 import '../../features/tasks/data/datasources/task_local_datasource.dart';
+import '../../features/tasks/data/datasources/sprint_board_local_datasource.dart';
 import '../../features/tasks/data/repositories/task_repository_impl.dart';
+import '../../features/tasks/data/repositories/sprint_board_repository_impl.dart';
 import '../../features/tasks/domain/repositories/task_repository.dart';
+import '../../features/tasks/domain/repositories/sprint_board_repository.dart';
 import '../../features/tasks/domain/usecases/task_usecases.dart';
+import '../../features/tasks/domain/usecases/sprint_board_usecases.dart';
 import '../../features/tasks/presentation/cubit/task_cubit.dart';
+import '../../features/tasks/presentation/cubit/sprint_board_cubit.dart';
 import '../../features/settings/presentation/cubit/theme_settings_cubit.dart';
 import '../theme/theme_settings_datasource.dart';
 
@@ -82,17 +87,31 @@ Future<void> initDependencies() async {
   getIt.registerLazySingleton<TaskRepository>(
     () => TaskRepositoryImpl(localDataSource: getIt()),
   );
+  getIt.registerLazySingleton<SprintBoardLocalDataSource>(
+    () => SprintBoardLocalDataSourceImpl(),
+  );
+  getIt.registerLazySingleton<SprintBoardRepository>(
+    () => SprintBoardRepositoryImpl(localDataSource: getIt()),
+  );
   getIt.registerLazySingleton(() => GetTasksBySprint(getIt()));
   getIt.registerLazySingleton(() => GetTaskById(getIt()));
   getIt.registerLazySingleton(() => CreateTask(getIt()));
   getIt.registerLazySingleton(() => UpdateTask(getIt()));
   getIt.registerLazySingleton(() => DeleteTask(getIt()));
+  getIt.registerLazySingleton(() => GetSprintBoardConfig(getIt()));
+  getIt.registerLazySingleton(() => SaveSprintBoardConfig(getIt()));
   getIt.registerFactory(
     () => TaskCubit(
       getTasksBySprint: getIt(),
       createTask: getIt(),
       updateTask: getIt(),
       deleteTask: getIt(),
+    ),
+  );
+  getIt.registerFactory(
+    () => SprintBoardCubit(
+      getConfig: getIt(),
+      saveConfig: getIt(),
     ),
   );
 }

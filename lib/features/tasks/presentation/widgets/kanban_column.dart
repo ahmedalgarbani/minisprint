@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/utils/string_helper.dart';
 import '../../../tasks/domain/entities/task.dart';
 import 'task_card.dart';
 
@@ -13,6 +12,8 @@ class KanbanColumn extends StatelessWidget {
   final Function(Task) onTaskTap;
   final Function(Task) onTaskDelete;
   final Function(Task, String) onTaskDropped;
+  final int? wipLimit;
+  final bool simpleMode;
 
   const KanbanColumn({
     super.key,
@@ -23,13 +24,15 @@ class KanbanColumn extends StatelessWidget {
     required this.onTaskTap,
     required this.onTaskDelete,
     required this.onTaskDropped,
+    this.wipLimit,
+    this.simpleMode = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final s = S(context);
     final theme = Theme.of(context);
     final columnTasks = tasks.where((t) => t.status == status).toList();
+    final isOverLimit = wipLimit != null && columnTasks.length > wipLimit!;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: AppPadding.xs),
@@ -49,7 +52,12 @@ class KanbanColumn extends StatelessWidget {
               color: color.withValues(alpha: 0.05),
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(AppRadius.l)),
-              border: Border(bottom: BorderSide(color: color, width: 2)),
+              border: Border(
+                bottom: BorderSide(
+                  color: isOverLimit ? AppColors.error : color,
+                  width: 2,
+                ),
+              ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -74,18 +82,61 @@ class KanbanColumn extends StatelessWidget {
                     color: color.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppRadius.s),
                   ),
-                  child: Text(
-                    '${columnTasks.length}',
-                    style: TextStyle(
-                      color: color,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        wipLimit == null
+                            ? '${columnTasks.length}'
+                            : '${columnTasks.length}/$wipLimit',
+                        style: TextStyle(
+                          color: isOverLimit ? AppColors.error : color,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                      if (isOverLimit) ...[
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.warning_rounded,
+                          size: 12,
+                          color: AppColors.error,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],
             ),
           ),
+          if (isOverLimit)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppPadding.m,
+                AppPadding.s,
+                AppPadding.m,
+                0,
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    size: 14,
+                    color: AppColors.error,
+                  ),
+                  const SizedBox(width: AppPadding.xs),
+                  Expanded(
+                    child: Text(
+                      'WIP limit exceeded',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppColors.error,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: DragTarget<Task>(
               onWillAcceptWithDetails: (task) => task.data.status != status,
@@ -116,6 +167,8 @@ class KanbanColumn extends StatelessWidget {
                             task: task,
                             onTap: () {},
                             onDelete: () {},
+                            showMetadata: !simpleMode,
+                            showDelete: !simpleMode,
                           ),
                         ),
                         childWhenDragging: Opacity(
@@ -124,12 +177,16 @@ class KanbanColumn extends StatelessWidget {
                             task: task,
                             onTap: () => onTaskTap(task),
                             onDelete: () => onTaskDelete(task),
+                            showMetadata: !simpleMode,
+                            showDelete: !simpleMode,
                           ),
                         ),
                         child: TaskCard(
                           task: task,
                           onTap: () => onTaskTap(task),
                           onDelete: () => onTaskDelete(task),
+                          showMetadata: !simpleMode,
+                          showDelete: !simpleMode,
                         ),
                       );
                     },

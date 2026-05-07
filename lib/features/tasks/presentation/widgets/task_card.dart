@@ -8,12 +8,16 @@ class TaskCard extends StatelessWidget {
   final Task task;
   final VoidCallback onTap;
   final VoidCallback onDelete;
+  final bool showMetadata;
+  final bool showDelete;
 
   const TaskCard({
     super.key,
     required this.task,
     required this.onTap,
     required this.onDelete,
+    this.showMetadata = true,
+    this.showDelete = true,
   });
 
   Color _getPriorityColor() {
@@ -97,16 +101,17 @@ class TaskCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: AppPadding.s),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.delete_outline_rounded,
-                        size: 18,
-                        color: AppColors.textMuted,
+                    if (showDelete)
+                      IconButton(
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 18,
+                          color: AppColors.textMuted,
+                        ),
+                        onPressed: onDelete,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                       ),
-                      onPressed: onDelete,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
                   ],
                 ),
                 if (task.description.isNotEmpty) ...[
@@ -118,8 +123,32 @@ class TaskCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
+                if (showMetadata &&
+                    (task.assignee.isNotEmpty || task.tags.isNotEmpty)) ...[
+                  const SizedBox(height: AppPadding.s),
+                  Wrap(
+                    spacing: AppPadding.xs,
+                    runSpacing: AppPadding.xs,
+                    children: [
+                      if (task.assignee.isNotEmpty)
+                        _buildChip(
+                          icon: Icons.person_outline_rounded,
+                          label: task.assignee,
+                          color: theme.primaryColor,
+                        ),
+                      ...task.tags.map(
+                        (tag) => _buildChip(
+                          icon: Icons.sell_outlined,
+                          label: tag,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: AppPadding.m),
-                Row(
+                if (showMetadata)
+                  Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Flexible(
@@ -163,11 +192,52 @@ class TaskCard extends StatelessWidget {
                       color: AppColors.textMuted,
                     ),
                   ],
-                ),
+                )
+                else
+                  const Align(
+                    alignment: Alignment.centerRight,
+                    child: Icon(
+                      Icons.drag_indicator_rounded,
+                      size: 16,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppPadding.s,
+        vertical: AppPadding.xs,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppRadius.s),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

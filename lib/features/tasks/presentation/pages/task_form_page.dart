@@ -21,6 +21,8 @@ class _TaskFormPageState extends State<TaskFormPage> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
+  late TextEditingController _assigneeController;
+  late TextEditingController _tagsController;
   late String _status;
   late String _priority;
 
@@ -33,6 +35,12 @@ class _TaskFormPageState extends State<TaskFormPage> {
     _descriptionController = TextEditingController(
       text: widget.task?.description ?? '',
     );
+    _assigneeController = TextEditingController(
+      text: widget.task?.assignee ?? '',
+    );
+    _tagsController = TextEditingController(
+      text: widget.task?.tags.join(', ') ?? '',
+    );
     _status = widget.task?.status ?? TaskStatus.todo;
     _priority = widget.task?.priority ?? TaskPriority.medium;
   }
@@ -41,6 +49,8 @@ class _TaskFormPageState extends State<TaskFormPage> {
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
+    _assigneeController.dispose();
+    _tagsController.dispose();
     super.dispose();
   }
 
@@ -136,13 +146,31 @@ class _TaskFormPageState extends State<TaskFormPage> {
                   value: _status,
                   decoration: const InputDecoration(border: InputBorder.none, filled: false),
                   items: [
+                    const DropdownMenuItem(value: TaskStatus.backlog, child: Text('Backlog')),
                     DropdownMenuItem(value: TaskStatus.todo, child: Text(s.toDo)),
                     DropdownMenuItem(value: TaskStatus.inProgress, child: Text(s.inProgress)),
+                    const DropdownMenuItem(value: TaskStatus.review, child: Text('Review')),
                     DropdownMenuItem(value: TaskStatus.done, child: Text(s.done)),
                   ],
                   onChanged: (value) {
                     if (value != null) setState(() => _status = value);
                   },
+                ),
+              ),
+              const SizedBox(height: AppPadding.m),
+              TextFormField(
+                controller: _assigneeController,
+                decoration: const InputDecoration(
+                  hintText: 'Assignee',
+                  prefixIcon: Icon(Icons.person_outline_rounded),
+                ),
+              ),
+              const SizedBox(height: AppPadding.m),
+              TextFormField(
+                controller: _tagsController,
+                decoration: const InputDecoration(
+                  hintText: 'Tags (design, api)',
+                  prefixIcon: Icon(Icons.sell_outlined),
                 ),
               ),
               const SizedBox(height: AppPadding.m),
@@ -205,6 +233,12 @@ class _TaskFormPageState extends State<TaskFormPage> {
         description: _descriptionController.text,
         status: _status,
         priority: _priority,
+        assignee: _assigneeController.text.trim(),
+        tags: _tagsController.text
+            .split(',')
+            .map((tag) => tag.trim())
+            .where((tag) => tag.isNotEmpty)
+            .toList(),
       );
       if (isEditing) {
         cubit.editTask(task);

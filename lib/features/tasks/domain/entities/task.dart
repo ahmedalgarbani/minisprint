@@ -7,6 +7,8 @@ class Task extends Equatable {
   final String description;
   final String status;
   final String priority;
+  final String assignee;
+  final List<String> tags;
 
   const Task({
     this.id,
@@ -15,6 +17,8 @@ class Task extends Equatable {
     required this.description,
     required this.status,
     required this.priority,
+    this.assignee = '',
+    this.tags = const [],
   });
 
   Task copyWith({
@@ -24,6 +28,8 @@ class Task extends Equatable {
     String? description,
     String? status,
     String? priority,
+    String? assignee,
+    List<String>? tags,
   }) {
     return Task(
       id: id ?? this.id,
@@ -32,6 +38,8 @@ class Task extends Equatable {
       description: description ?? this.description,
       status: status ?? this.status,
       priority: priority ?? this.priority,
+      assignee: assignee ?? this.assignee,
+      tags: tags ?? this.tags,
     );
   }
 
@@ -43,5 +51,7 @@ class Task extends Equatable {
     description,
     status,
     priority,
+    assignee,
+    tags,
   ];
 }

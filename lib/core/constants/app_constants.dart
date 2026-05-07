@@ -21,18 +21,20 @@ class AppConstants {
 
   // Database
   static const String databaseName = 'minisprint.db';
-  static const int databaseVersion = 1;
+  static const int databaseVersion = 2;
   static const String tableProjects = 'projects';
   static const String tableSprints = 'sprints';
   static const String tableTasks = 'tasks';
 }
 
 class TaskStatus {
+  static const String backlog = 'Backlog';
   static const String todo = 'To Do';
   static const String inProgress = 'In Progress';
+  static const String review = 'Review';
   static const String done = 'Done';
   
-  static const List<String> values = [todo, inProgress, done];
+  static const List<String> values = [backlog, todo, inProgress, review, done];
 }
 
 class TaskPriority {

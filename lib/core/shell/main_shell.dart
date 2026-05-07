@@ -10,6 +10,7 @@ import '../../features/sprints/presentation/pages/sprint_list_page.dart';
 import '../../features/sprints/domain/repositories/sprint_repository.dart';
 import '../../features/tasks/presentation/pages/kanban_board_page.dart';
 import '../../features/tasks/presentation/cubit/task_cubit.dart';
+import '../../features/tasks/presentation/cubit/sprint_board_cubit.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../core/utils/result.dart';
 import '../di/injection.dart';
@@ -158,8 +159,16 @@ class _MainShellState extends State<MainShell> {
 
         final sprint = result.dataOrNull!;
 
-        return BlocProvider(
-          create: (_) => getIt<TaskCubit>()..loadTasks(_selectedSprintId!),
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider(
+              create: (_) => getIt<TaskCubit>()..loadTasks(_selectedSprintId!),
+            ),
+            BlocProvider(
+              create: (_) =>
+                  getIt<SprintBoardCubit>()..load(sprintId: _selectedSprintId!),
+            ),
+          ],
           child: KanbanBoardPage(sprint: sprint),
         );
       },

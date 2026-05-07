@@ -8,6 +8,8 @@ class TaskModel extends Equatable {
   final String description;
   final String status;
   final String priority;
+  final String assignee;
+  final List<String> tags;
 
   const TaskModel({
     this.id,
@@ -16,6 +18,8 @@ class TaskModel extends Equatable {
     required this.description,
     required this.status,
     required this.priority,
+    this.assignee = '',
+    this.tags = const [],
   });
 
   factory TaskModel.fromMap(Map<String, dynamic> map) {
@@ -26,6 +30,8 @@ class TaskModel extends Equatable {
       description: map['description'] as String? ?? '',
       status: map['status'] as String,
       priority: map['priority'] as String,
+      assignee: map['assignee'] as String? ?? '',
+      tags: _decodeTags(map['tags'] as String?),
     );
   }
 
@@ -37,6 +43,8 @@ class TaskModel extends Equatable {
       'description': description,
       'status': status,
       'priority': priority,
+      'assignee': assignee,
+      'tags': tags.join(','),
     };
   }
 
@@ -48,6 +56,8 @@ class TaskModel extends Equatable {
       description: task.description,
       status: task.status,
       priority: task.priority,
+      assignee: task.assignee,
+      tags: task.tags,
     );
   }
 
@@ -59,7 +69,18 @@ class TaskModel extends Equatable {
       description: description,
       status: status,
       priority: priority,
+      assignee: assignee,
+      tags: tags,
     );
+  }
+
+  static List<String> _decodeTags(String? value) {
+    if (value == null || value.trim().isEmpty) return const [];
+    return value
+        .split(',')
+        .map((tag) => tag.trim())
+        .where((tag) => tag.isNotEmpty)
+        .toList();
   }
 
   @override
@@ -70,5 +91,7 @@ class TaskModel extends Equatable {
     description,
     status,
     priority,
+    assignee,
+    tags,
   ];
 }

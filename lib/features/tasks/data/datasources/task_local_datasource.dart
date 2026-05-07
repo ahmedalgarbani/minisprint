@@ -56,6 +56,8 @@ class TaskLocalDataSourceImpl implements TaskLocalDataSource {
       description: task.description,
       status: task.status,
       priority: task.priority,
+      assignee: task.assignee,
+      tags: task.tags,
     );
   }
 

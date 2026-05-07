@@ -19,6 +19,7 @@ class DatabaseHelper {
       path,
       version: AppConstants.databaseVersion,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -51,9 +52,22 @@ class DatabaseHelper {
         description TEXT,
         status TEXT NOT NULL,
         priority TEXT NOT NULL,
+        assignee TEXT,
+        tags TEXT,
         FOREIGN KEY (sprint_id) REFERENCES ${AppConstants.tableSprints}(id) ON DELETE CASCADE
       )
     ''');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute(
+        'ALTER TABLE ${AppConstants.tableTasks} ADD COLUMN assignee TEXT',
+      );
+      await db.execute(
+        'ALTER TABLE ${AppConstants.tableTasks} ADD COLUMN tags TEXT',
+      );
+    }
   }
 
   Future<void> close() async {
