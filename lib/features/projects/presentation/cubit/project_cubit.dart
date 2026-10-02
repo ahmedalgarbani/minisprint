@@ -1,4 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../../core/error/failure.dart';
 import '../../../../core/utils/result.dart';
 import '../../domain/entities/project.dart';
 import '../../domain/usecases/project_usecases.dart';
@@ -17,40 +19,44 @@ class ProjectCubit extends Cubit<ProjectState> {
     required this.deleteProject,
   }) : super(const ProjectInitial());
 
+  /// Shows a spinner only on the first load; later reloads keep the list on
+  /// screen to avoid flicker.
   Future<void> loadProjects() async {
-    emit(const ProjectLoading());
+    if (state is! ProjectsLoaded) emit(const ProjectLoading());
     final result = await getAllProjects();
+    if (isClosed) return;
+    final query = switch (state) {
+      ProjectsLoaded(:final query) => query,
+      _ => '',
+    };
     result.fold(
-      (failure) => emit(ProjectError(failure.message)),
-      (projects) => emit(ProjectsLoaded(projects)),
+      (failure) => emit(ProjectError(failure)),
+      (projects) => emit(ProjectsLoaded(projects, query: query)),
     );
   }
 
-  Future<void> addProject(String name, String description) async {
-    emit(const ProjectLoading());
-    final project = Project(name: name, description: description);
-    final result = await createProject(project);
-    result.fold((failure) => emit(ProjectError(failure.message)), (_) {
-      emit(const ProjectOperationSuccess('Project created successfully'));
-      loadProjects();
-    });
+  void search(String query) {
+    final current = state;
+    if (current is ProjectsLoaded) {
+      emit(ProjectsLoaded(current.projects, query: query));
+    }
   }
 
-  Future<void> editProject(Project project) async {
-    emit(const ProjectLoading());
-    final result = await updateProject(project);
-    result.fold((failure) => emit(ProjectError(failure.message)), (_) {
-      emit(const ProjectOperationSuccess('Project updated successfully'));
-      loadProjects();
-    });
+  /// Returns `null` on success, otherwise the failure to show.
+  Future<Failure?> saveProject(Project project) async {
+    final result = project.id == null
+        ? await createProject(project)
+        : await updateProject(project);
+    return _afterMutation(result);
   }
 
-  Future<void> removeProject(int id) async {
-    emit(const ProjectLoading());
-    final result = await deleteProject(id);
-    result.fold((failure) => emit(ProjectError(failure.message)), (_) {
-      emit(const ProjectOperationSuccess('Project deleted successfully'));
-      loadProjects();
-    });
+  Future<Failure?> removeProject(int id) async {
+    return _afterMutation(await deleteProject(id));
+  }
+
+  Future<Failure?> _afterMutation(ApiResult<Object?> result) async {
+    final failure = result.failureOrNull;
+    if (failure == null) await loadProjects();
+    return failure;
   }
 }

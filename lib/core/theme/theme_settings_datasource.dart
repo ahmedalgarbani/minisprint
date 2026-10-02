@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../preferences/work_mode.dart';
 import 'theme_settings_model.dart';
 
 class ThemeSettingsDataSource {
@@ -7,14 +9,29 @@ class ThemeSettingsDataSource {
   static const _keyPrimaryColor = 'primary_color';
   static const _keySecondaryColor = 'secondary_color';
   static const _keyLocale = 'locale';
+  static const _keyWorkMode = 'work_mode';
 
   Future<ThemeSettings> getThemeSettings() async {
     final prefs = await SharedPreferences.getInstance();
+    const defaults = ThemeSettings();
+    final modeIndex = prefs.getInt(_keyThemeMode);
     return ThemeSettings(
-      themeMode: ThemeMode.values[prefs.getInt(_keyThemeMode) ?? 0],
-      primaryColor: Color(prefs.getInt(_keyPrimaryColor) ?? 0xFF6366F1),
-      secondaryColor: Color(prefs.getInt(_keySecondaryColor) ?? 0xFF10B981),
+      themeMode:
+          modeIndex != null &&
+              modeIndex >= 0 &&
+              modeIndex < ThemeMode.values.length
+          ? ThemeMode.values[modeIndex]
+          : defaults.themeMode,
+      primaryColor: Color(
+        prefs.getInt(_keyPrimaryColor) ?? defaults.primaryColor.toARGB32(),
+      ),
+      secondaryColor: Color(
+        prefs.getInt(_keySecondaryColor) ?? defaults.secondaryColor.toARGB32(),
+      ),
       locale: Locale(prefs.getString(_keyLocale) ?? 'en'),
+      workMode:
+          WorkMode.values.asNameMap()[prefs.getString(_keyWorkMode)] ??
+          defaults.workMode,
     );
   }
 
@@ -24,5 +41,6 @@ class ThemeSettingsDataSource {
     await prefs.setInt(_keyPrimaryColor, settings.primaryColor.toARGB32());
     await prefs.setInt(_keySecondaryColor, settings.secondaryColor.toARGB32());
     await prefs.setString(_keyLocale, settings.locale.languageCode);
+    await prefs.setString(_keyWorkMode, settings.workMode.name);
   }
 }

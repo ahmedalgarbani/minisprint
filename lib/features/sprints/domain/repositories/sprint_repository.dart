@@ -2,7 +2,6 @@ import '../../../../core/utils/result.dart';
 import '../entities/sprint.dart';
 
 abstract class SprintRepository {
-  Future<ApiResult<List<Sprint>>> getAllSprints();
   Future<ApiResult<List<Sprint>>> getSprintsByProject(int projectId);
   Future<ApiResult<Sprint>> getSprintById(int id);
   Future<ApiResult<Sprint>> createSprint(Sprint sprint);

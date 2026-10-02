@@ -1,247 +1,241 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:minisprint/core/utils/string_helper.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/constants/app_constants.dart';
-import '../../domain/entities/sprint.dart';
-import '../cubit/sprint_cubit.dart';
-import '../cubit/sprint_state.dart';
 
+import '../../../../core/constants/app_constants.dart';
+import '../../../../core/error/failure.dart';
+import '../../../../core/utils/date_format.dart';
+import '../../../../core/utils/date_math.dart';
+import '../../../../core/utils/string_helper.dart';
+import '../../../../core/widgets/feedback.dart';
+import '../../domain/entities/sprint.dart';
+
+/// Create / edit a sprint: name, goal and timebox. Status changes happen
+/// through the Start / Complete actions, not here.
 class SprintFormPage extends StatefulWidget {
   final int projectId;
   final Sprint? sprint;
+  final String suggestedName;
+  final DateTime suggestedStart;
+  final Future<Failure?> Function(Sprint sprint) onSubmit;
 
-  const SprintFormPage({super.key, required this.projectId, this.sprint});
+  const SprintFormPage({
+    super.key,
+    required this.projectId,
+    this.sprint,
+    required this.suggestedName,
+    required this.suggestedStart,
+    required this.onSubmit,
+  });
 
   @override
   State<SprintFormPage> createState() => _SprintFormPageState();
 }
 
 class _SprintFormPageState extends State<SprintFormPage> {
+  static const _presetWeeks = [1, 2, 3, 4];
+
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _nameController;
+  late final TextEditingController _nameController;
+  late final TextEditingController _goalController;
   late DateTime _startDate;
   late DateTime _endDate;
-  late String _status;
+  bool _saving = false;
 
-  bool get isEditing => widget.sprint != null;
+  bool get _isEditing => widget.sprint != null;
+
+  /// Selected preset in weeks, or null for a custom range.
+  int? get _weeks {
+    final days = calendarDaysBetween(_startDate, _endDate);
+    return days % 7 == 0 && _presetWeeks.contains(days ~/ 7) ? days ~/ 7 : null;
+  }
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.sprint?.name ?? '');
-    _startDate = widget.sprint?.startDate ?? DateTime.now();
-    _endDate =
-        widget.sprint?.endDate ?? DateTime.now().add(const Duration(days: 14));
-    _status = widget.sprint?.status ?? 'Active';
+    final sprint = widget.sprint;
+    _nameController = TextEditingController(
+      text: sprint?.name ?? widget.suggestedName,
+    );
+    _goalController = TextEditingController(text: sprint?.goal ?? '');
+    _startDate = sprint?.startDate ?? addCalendarDays(widget.suggestedStart, 0);
+    _endDate = sprint?.endDate ?? addCalendarDays(_startDate, 14);
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _goalController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final s = S(context);
-    return BlocListener<SprintCubit, SprintState>(
-      listener: (context, state) {
-        if (state is SprintOperationSuccess) {
-          Navigator.pop(context);
-        } else if (state is SprintError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: AppColors.error,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadius.m),
-              ),
-            ),
-          );
-        }
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(isEditing ? s.editSprint : s.createSprint),
-          leading: IconButton(
-            icon: Icon(
-              s.isAr
-                  ? Icons.arrow_back_rounded
-                  : Icons.arrow_back_ios_new_rounded,
-            ),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ),
-        body: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(AppPadding.l),
-            children: [
-              const Center(
-                child: CircleAvatar(
-                  radius: 40,
-                  backgroundColor: AppColors.surface,
-                  child: Icon(
-                    Icons.speed_rounded,
-                    size: 40,
-                    color: AppColors.primary,
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(title: Text(_isEditing ? s.editSprint : s.addSprint)),
+      body: Form(
+        key: _formKey,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 640),
+            child: ListView(
+              padding: const EdgeInsets.all(AppPadding.m),
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  decoration: InputDecoration(labelText: s.sprintName),
+                  validator: (v) => v == null || v.trim().isEmpty
+                      ? s.pleaseEnterSprintName
+                      : null,
+                ),
+                const SizedBox(height: AppPadding.m),
+                TextFormField(
+                  controller: _goalController,
+                  minLines: 2,
+                  maxLines: 4,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    labelText: '${s.sprintGoal} (${s.optional})',
+                    hintText: s.sprintGoalHint,
+                    alignLabelWithHint: true,
                   ),
                 ),
-              ),
-              const SizedBox(height: AppPadding.xl),
-              Text(
-                s.sprintDetails,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: AppPadding.s),
-              Text(
-                s.sprintGoal,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: AppPadding.xl),
-              TextFormField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  hintText: s.sprintName,
-                  prefixIcon: const Icon(Icons.bolt_rounded),
+                const SizedBox(height: AppPadding.l),
+                Text(s.duration, style: theme.textTheme.labelMedium),
+                const SizedBox(height: AppPadding.s),
+                Wrap(
+                  spacing: AppPadding.s,
+                  runSpacing: AppPadding.s,
+                  children: [
+                    for (final weeks in _presetWeeks)
+                      ChoiceChip(
+                        label: Text(s.weeks(weeks)),
+                        selected: _weeks == weeks,
+                        onSelected: (_) => setState(
+                          () =>
+                              _endDate = addCalendarDays(_startDate, weeks * 7),
+                        ),
+                      ),
+                    ChoiceChip(
+                      label: Text(s.custom),
+                      selected: _weeks == null,
+                      onSelected: (_) => _pickDate(start: false),
+                    ),
+                  ],
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return s.pleaseEnterSprintName;
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: AppPadding.m),
-              _buildDateTile(
-                title: s.startDate,
-                date: _startDate,
-                onTap: () => _selectDate(true),
-                icon: Icons.calendar_today_rounded,
-              ),
-              const SizedBox(height: AppPadding.m),
-              _buildDateTile(
-                title: s.endDate,
-                date: _endDate,
-                onTap: () => _selectDate(false),
-                icon: Icons.event_rounded,
-              ),
-              const SizedBox(height: AppPadding.m),
-              DropdownButtonFormField<String>(
-                value: _status,
-                decoration: InputDecoration(
-                  hintText: s.status,
-                  prefixIcon: const Icon(Icons.info_outline_rounded),
+                const SizedBox(height: AppPadding.m),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _DateField(
+                        label: s.startDate,
+                        value: formatDate(context, _startDate),
+                        onTap: () => _pickDate(start: true),
+                      ),
+                    ),
+                    const SizedBox(width: AppPadding.s),
+                    Expanded(
+                      child: _DateField(
+                        label: s.endDate,
+                        value: formatDate(context, _endDate),
+                        onTap: () => _pickDate(start: false),
+                      ),
+                    ),
+                  ],
                 ),
-                items: [
-                  DropdownMenuItem(value: 'Active', child: Text(s.active)),
-                  DropdownMenuItem(
-                    value: 'Completed',
-                    child: Text(s.completed),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value != null) setState(() => _status = value);
-                },
-              ),
-              const SizedBox(height: AppPadding.xxl),
-              ElevatedButton(
-                onPressed: _saveSprint,
-                child: Text(isEditing ? s.updateSprint : s.createSprint),
-              ),
-            ],
+                const SizedBox(height: AppPadding.xl),
+                FilledButton(
+                  onPressed: _saving ? null : _save,
+                  child: _saving
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(_isEditing ? s.save : s.create),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildDateTile({
-    required String title,
-    required DateTime date,
-    required VoidCallback onTap,
-    required IconData icon,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.todo,
-        borderRadius: BorderRadius.circular(AppRadius.m),
-      ),
-      child: ListTile(
-        onTap: onTap,
-        leading: Icon(icon, color: AppColors.textSecondary),
-        title: Text(
-          title,
-          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-        ),
-        subtitle: Text(
-          '${date.day}/${date.month}/${date.year}',
-          style: const TextStyle(
-            fontSize: 16,
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        trailing: const Icon(
-          Icons.chevron_right_rounded,
-          color: AppColors.textSecondary,
-        ),
-      ),
-    );
-  }
-
-  Future<void> _selectDate(bool isStart) async {
+  Future<void> _pickDate({required bool start}) async {
+    final initial = start ? _startDate : _endDate;
     final date = await showDatePicker(
       context: context,
-      initialDate: isStart ? _startDate : _endDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              surface: AppColors.surface,
-              onSurface: AppColors.textPrimary,
-            ),
-          ),
-          child: child!,
-        );
-      },
+      initialDate: initial,
+      firstDate: DateTime(initial.year - 5),
+      lastDate: DateTime(initial.year + 5),
     );
-    if (date != null) {
-      setState(() {
-        if (isStart) {
-          _startDate = date;
-          if (_endDate.isBefore(_startDate)) {
-            _endDate = _startDate.add(const Duration(days: 14));
-          }
-        } else {
-          _endDate = date;
-        }
-      });
-    }
+    if (date == null) return;
+    setState(() {
+      if (start) {
+        // Keep the chosen duration when moving the start date.
+        final length = calendarDaysBetween(_startDate, _endDate);
+        _startDate = date;
+        _endDate = addCalendarDays(date, length < 0 ? 14 : length);
+      } else {
+        _endDate = date.isBefore(_startDate) ? _startDate : date;
+      }
+    });
   }
 
-  void _saveSprint() {
-    if (_formKey.currentState!.validate()) {
-      final cubit = context.read<SprintCubit>();
-      final sprint = Sprint(
-        id: widget.sprint?.id,
-        projectId: widget.projectId,
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    final s = S(context);
+    final base =
+        widget.sprint ??
+        Sprint(
+          projectId: widget.projectId,
+          name: '',
+          startDate: _startDate,
+          endDate: _endDate,
+        );
+    setState(() => _saving = true);
+    final failure = await widget.onSubmit(
+      base.copyWith(
         name: _nameController.text,
+        goal: _goalController.text,
         startDate: _startDate,
         endDate: _endDate,
-        status: _status,
-      );
-      if (isEditing) {
-        cubit.editSprint(sprint);
-      } else {
-        cubit.addSprint(sprint);
-      }
+      ),
+    );
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (showOperationResult(context, failure, success: s.sprintSaved)) {
+      Navigator.pop(context);
     }
+  }
+}
+
+class _DateField extends StatelessWidget {
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  const _DateField({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.s),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: const Icon(Icons.event_outlined),
+        ),
+        child: Text(value),
+      ),
+    );
   }
 }

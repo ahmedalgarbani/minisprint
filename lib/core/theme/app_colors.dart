@@ -1,37 +1,58 @@
 import 'package:flutter/material.dart';
 
+import '../constants/app_constants.dart';
+
 class AppColors {
-  // Brand Colors
-  static const Color primary = Color(0xFF6366F1);
-  static const Color primaryDark = Color(0xFF4F46E5);
+  // Brand
+  static const Color primary = Color(0xFF2563EB);
   static const Color secondary = Color(0xFF10B981);
-  static const Color accent = Color(0xFFF59E0B);
 
-  // Neutral Colors (Dark Mode Friendly)
-  static const Color background = Color(0xFF0F172A);
-  static const Color surface = Color(0xFF1E293B);
-  static const Color card = Color(0xFF334155);
-  
-  // Text Colors
-  static const Color textPrimary = Color(0xFFF8FAFC);
-  static const Color textSecondary = Color(0xFF94A3B8);
-  static const Color textMuted = Color(0xFF64748B);
+  // Light neutrals
+  static const Color lightBackground = Color(0xFFF4F5F7);
+  static const Color lightSurface = Color(0xFFFFFFFF);
+  static const Color lightSurfaceVariant = Color(0xFFEBECF0);
+  static const Color lightBorder = Color(0xFFDFE1E6);
+  static const Color lightText = Color(0xFF172B4D);
+  static const Color lightTextSecondary = Color(0xFF5E6C84);
 
-  // Status Colors
-  static const Color success = Color(0xFF22C55E);
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color error = Color(0xFFEF4444);
-  static const Color info = Color(0xFF3B82F6);
+  // Dark neutrals
+  static const Color darkBackground = Color(0xFF1D2125);
+  static const Color darkSurface = Color(0xFF22272B);
+  static const Color darkSurfaceVariant = Color(0xFF2C333A);
+  static const Color darkBorder = Color(0xFF38414A);
+  static const Color darkText = Color(0xFFDEE4EA);
+  static const Color darkTextSecondary = Color(0xFF9FADBC);
 
-  // Kanban Specific
-  static const Color todo = Color(0xFF94A3B8);
-  static const Color inProgress = Color(0xFF3B82F6);
-  static const Color done = Color(0xFF22C55E);
+  // Semantic
+  static const Color success = Color(0xFF22A06B);
+  static const Color warning = Color(0xFFE2B203);
+  static const Color error = Color(0xFFE34935);
+  static const Color info = Color(0xFF1D7AFC);
+  static const Color neutral = Color(0xFF8590A2);
 
-  // Gradients
-  static const LinearGradient primaryGradient = LinearGradient(
-    colors: [primary, primaryDark],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
+  // Work item types
+  static const Color story = Color(0xFF22A06B);
+  static const Color task = Color(0xFF1D7AFC);
+  static const Color bug = Color(0xFFE34935);
+
+  // Priorities
+  static const Color priorityHigh = Color(0xFFE34935);
+  static const Color priorityMedium = Color(0xFFF5A623);
+  static const Color priorityLow = Color(0xFF1D7AFC);
+
+  static Color statusColor(String status) => switch (status) {
+    TaskStatus.backlog => neutral,
+    TaskStatus.todo => neutral,
+    TaskStatus.inProgress => info,
+    TaskStatus.review => const Color(0xFF8F7EE7),
+    TaskStatus.done => success,
+    _ => const Color(0xFF6CC3E0),
+  };
+
+  static Color priorityColor(String priority) => switch (priority) {
+    TaskPriority.high => priorityHigh,
+    TaskPriority.medium => priorityMedium,
+    TaskPriority.low => priorityLow,
+    _ => neutral,
+  };
 }

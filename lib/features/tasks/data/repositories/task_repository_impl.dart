@@ -1,74 +1,35 @@
-import '../../../../core/error/failure.dart';
+import '../../../../core/error/error_mapper.dart';
 import '../../../../core/utils/result.dart';
 import '../../domain/entities/task.dart';
 import '../../domain/repositories/task_repository.dart';
-import '../datasources/task_local_datasource.dart';
-import '../models/task_model.dart';
+import '../datasources/task_datasource.dart';
 
 class TaskRepositoryImpl implements TaskRepository {
-  final TaskLocalDataSource localDataSource;
+  final TaskDataSource dataSource;
 
-  TaskRepositoryImpl({required this.localDataSource});
-
-  @override
-  Future<ApiResult<List<Task>>> getAllTasks() async {
-    try {
-      final models = await localDataSource.getAllTasks();
-      return Success(models.map((m) => m.toEntity()).toList());
-    } catch (e) {
-      return Error(DatabaseFailure('Failed to get all tasks: $e'));
-    }
-  }
+  TaskRepositoryImpl({required this.dataSource});
 
   @override
-  Future<ApiResult<List<Task>>> getTasksBySprint(int sprintId) async {
-    try {
-      final models = await localDataSource.getTasksBySprint(sprintId);
-      return Success(models.map((m) => m.toEntity()).toList());
-    } catch (e) {
-      return Error(DatabaseFailure('Failed to get tasks: $e'));
-    }
-  }
+  Future<ApiResult<List<Task>>> getTasksByProject(int projectId) =>
+      guard(() => dataSource.getTasksByProject(projectId));
 
   @override
-  Future<ApiResult<Task>> getTaskById(int id) async {
-    try {
-      final model = await localDataSource.getTaskById(id);
-      return Success(model.toEntity());
-    } catch (e) {
-      return Error(DatabaseFailure('Failed to get task: $e'));
-    }
-  }
+  Future<ApiResult<List<Task>>> getTasksBySprint(int sprintId) =>
+      guard(() => dataSource.getTasksBySprint(sprintId));
 
   @override
-  Future<ApiResult<Task>> createTask(Task task) async {
-    try {
-      final model = TaskModel.fromEntity(task);
-      final result = await localDataSource.createTask(model);
-      return Success(result.toEntity());
-    } catch (e) {
-      return Error(DatabaseFailure('Failed to create task: $e'));
-    }
-  }
+  Future<ApiResult<Task>> getTaskById(int id) =>
+      guard(() => dataSource.getTaskById(id));
 
   @override
-  Future<ApiResult<Task>> updateTask(Task task) async {
-    try {
-      final model = TaskModel.fromEntity(task);
-      final result = await localDataSource.updateTask(model);
-      return Success(result.toEntity());
-    } catch (e) {
-      return Error(DatabaseFailure('Failed to update task: $e'));
-    }
-  }
+  Future<ApiResult<Task>> createTask(Task task) =>
+      guard(() => dataSource.createTask(task));
 
   @override
-  Future<ApiResult<void>> deleteTask(int id) async {
-    try {
-      await localDataSource.deleteTask(id);
-      return const Success(null);
-    } catch (e) {
-      return Error(DatabaseFailure('Failed to delete task: $e'));
-    }
-  }
+  Future<ApiResult<Task>> updateTask(Task task) =>
+      guard(() => dataSource.updateTask(task));
+
+  @override
+  Future<ApiResult<void>> deleteTask(int id) =>
+      guard(() => dataSource.deleteTask(id));
 }

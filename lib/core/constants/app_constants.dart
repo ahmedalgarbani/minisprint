@@ -15,13 +15,18 @@ class AppRadius {
   static const double xxl = 32.0;
 }
 
+class AppBreakpoints {
+  static const double tablet = 720;
+  static const double desktop = 1100;
+}
+
 class AppConstants {
   static const String appName = 'MiniSprint';
   static const double defaultElevation = 0.0;
 
   // Database
   static const String databaseName = 'minisprint.db';
-  static const int databaseVersion = 2;
+  static const int databaseVersion = 3;
   static const String tableProjects = 'projects';
   static const String tableSprints = 'sprints';
   static const String tableTasks = 'tasks';
@@ -33,7 +38,7 @@ class TaskStatus {
   static const String inProgress = 'In Progress';
   static const String review = 'Review';
   static const String done = 'Done';
-  
+
   static const List<String> values = [backlog, todo, inProgress, review, done];
 }
 
@@ -41,6 +46,6 @@ class TaskPriority {
   static const String low = 'Low';
   static const String medium = 'Medium';
   static const String high = 'High';
-  
+
   static const List<String> values = [low, medium, high];
 }

@@ -1,86 +1,33 @@
-import 'package:equatable/equatable.dart';
+import '../../../../core/network/json_utils.dart';
 import '../../domain/entities/sprint.dart';
 
-class SprintModel extends Equatable {
-  final int? id;
-  final int projectId;
-  final String name;
-  final DateTime startDate;
-  final DateTime endDate;
-  final String status;
-  final int totalTasks;
-  final int completedTasks;
+/// Maps [Sprint] to and from SQLite rows and API JSON (both snake_case).
+class SprintModel {
+  const SprintModel._();
 
-  const SprintModel({
-    this.id,
-    required this.projectId,
-    required this.name,
-    required this.startDate,
-    required this.endDate,
-    required this.status,
-    this.totalTasks = 0,
-    this.completedTasks = 0,
-  });
-
-  factory SprintModel.fromMap(Map<String, dynamic> map) {
-    return SprintModel(
-      id: map['id'] as int?,
-      projectId: map['project_id'] as int,
-      name: map['name'] as String,
+  static Sprint fromMap(Map<String, dynamic> map) {
+    return Sprint(
+      id: jsonInt(map['id']),
+      projectId: jsonInt(map['project_id']) ?? 0,
+      name: map['name'] as String? ?? '',
+      goal: map['goal'] as String? ?? '',
       startDate: DateTime.parse(map['start_date'] as String),
       endDate: DateTime.parse(map['end_date'] as String),
-      status: map['status'] as String,
-      totalTasks: map['total_tasks'] as int? ?? 0,
-      completedTasks: map['completed_tasks'] as int? ?? 0,
+      status: SprintStatus.fromValue(map['status'] as String?),
+      totalTasks: jsonInt(map['total_tasks']) ?? 0,
+      completedTasks: jsonInt(map['completed_tasks']) ?? 0,
     );
   }
 
-  Map<String, dynamic> toMap() {
+  static Map<String, dynamic> toMap(Sprint sprint) {
     return {
-      if (id != null) 'id': id,
-      'project_id': projectId,
-      'name': name,
-      'start_date': startDate.toIso8601String(),
-      'end_date': endDate.toIso8601String(),
-      'status': status,
+      if (sprint.id != null) 'id': sprint.id,
+      'project_id': sprint.projectId,
+      'name': sprint.name,
+      'goal': sprint.goal,
+      'start_date': sprint.startDate.toIso8601String(),
+      'end_date': sprint.endDate.toIso8601String(),
+      'status': sprint.status.value,
     };
   }
-
-  factory SprintModel.fromEntity(Sprint sprint) {
-    return SprintModel(
-      id: sprint.id,
-      projectId: sprint.projectId,
-      name: sprint.name,
-      startDate: sprint.startDate,
-      endDate: sprint.endDate,
-      status: sprint.status,
-      totalTasks: sprint.totalTasks,
-      completedTasks: sprint.completedTasks,
-    );
-  }
-
-  Sprint toEntity() {
-    return Sprint(
-      id: id,
-      projectId: projectId,
-      name: name,
-      startDate: startDate,
-      endDate: endDate,
-      status: status,
-      totalTasks: totalTasks,
-      completedTasks: completedTasks,
-    );
-  }
-
-  @override
-  List<Object?> get props => [
-        id,
-        projectId,
-        name,
-        startDate,
-        endDate,
-        status,
-        totalTasks,
-        completedTasks,
-      ];
 }
