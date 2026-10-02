@@ -1,64 +1,31 @@
-import '../../../../core/error/failure.dart';
+import '../../../../core/error/error_mapper.dart';
 import '../../../../core/utils/result.dart';
 import '../../domain/entities/project.dart';
 import '../../domain/repositories/project_repository.dart';
-import '../datasources/project_local_datasource.dart';
-import '../models/project_model.dart';
+import '../datasources/project_datasource.dart';
 
 class ProjectRepositoryImpl implements ProjectRepository {
-  final ProjectLocalDataSource localDataSource;
+  final ProjectDataSource dataSource;
 
-  ProjectRepositoryImpl({required this.localDataSource});
-
-  @override
-  Future<ApiResult<List<Project>>> getAllProjects() async {
-    try {
-      final models = await localDataSource.getAllProjects();
-      return Success(models.map((m) => m.toEntity()).toList());
-    } catch (e) {
-      return Error(DatabaseFailure('Failed to get projects: $e'));
-    }
-  }
+  ProjectRepositoryImpl({required this.dataSource});
 
   @override
-  Future<ApiResult<Project>> getProjectById(int id) async {
-    try {
-      final model = await localDataSource.getProjectById(id);
-      return Success(model.toEntity());
-    } catch (e) {
-      return Error(DatabaseFailure('Failed to get project: $e'));
-    }
-  }
+  Future<ApiResult<List<Project>>> getAllProjects() =>
+      guard(dataSource.getAllProjects);
 
   @override
-  Future<ApiResult<Project>> createProject(Project project) async {
-    try {
-      final model = ProjectModel.fromEntity(project);
-      final result = await localDataSource.createProject(model);
-      return Success(result.toEntity());
-    } catch (e) {
-      return Error(DatabaseFailure('Failed to create project: $e'));
-    }
-  }
+  Future<ApiResult<Project>> getProjectById(int id) =>
+      guard(() => dataSource.getProjectById(id));
 
   @override
-  Future<ApiResult<Project>> updateProject(Project project) async {
-    try {
-      final model = ProjectModel.fromEntity(project);
-      final result = await localDataSource.updateProject(model);
-      return Success(result.toEntity());
-    } catch (e) {
-      return Error(DatabaseFailure('Failed to update project: $e'));
-    }
-  }
+  Future<ApiResult<Project>> createProject(Project project) =>
+      guard(() => dataSource.createProject(project));
 
   @override
-  Future<ApiResult<void>> deleteProject(int id) async {
-    try {
-      await localDataSource.deleteProject(id);
-      return const Success(null);
-    } catch (e) {
-      return Error(DatabaseFailure('Failed to delete project: $e'));
-    }
-  }
+  Future<ApiResult<Project>> updateProject(Project project) =>
+      guard(() => dataSource.updateProject(project));
+
+  @override
+  Future<ApiResult<void>> deleteProject(int id) =>
+      guard(() => dataSource.deleteProject(id));
 }

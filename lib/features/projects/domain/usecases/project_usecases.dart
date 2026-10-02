@@ -1,4 +1,5 @@
 import '../../../../core/utils/result.dart';
+import '../../../../core/utils/validation.dart';
 import '../entities/project.dart';
 import '../repositories/project_repository.dart';
 
@@ -27,8 +28,10 @@ class CreateProject {
 
   CreateProject(this.repository);
 
-  Future<ApiResult<Project>> call(Project project) {
-    return repository.createProject(project);
+  Future<ApiResult<Project>> call(Project project) async {
+    final clean = _normalize(project);
+    if (clean.name.isEmpty) return invalid(ValidationCodes.requiredName);
+    return repository.createProject(clean);
   }
 }
 
@@ -37,8 +40,10 @@ class UpdateProject {
 
   UpdateProject(this.repository);
 
-  Future<ApiResult<Project>> call(Project project) {
-    return repository.updateProject(project);
+  Future<ApiResult<Project>> call(Project project) async {
+    final clean = _normalize(project);
+    if (clean.name.isEmpty) return invalid(ValidationCodes.requiredName);
+    return repository.updateProject(clean);
   }
 }
 
@@ -51,3 +56,9 @@ class DeleteProject {
     return repository.deleteProject(id);
   }
 }
+
+Project _normalize(Project project) => project.copyWith(
+  name: project.name.trim(),
+  description: project.description.trim(),
+  key: project.key.trim().toUpperCase(),
+);

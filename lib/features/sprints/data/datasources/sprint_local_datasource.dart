@@ -1,88 +1,69 @@
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/database/database_helper.dart';
+import '../../../../core/error/exceptions.dart';
+import '../../domain/entities/sprint.dart';
 import '../models/sprint_model.dart';
+import 'sprint_datasource.dart';
 
-abstract class SprintLocalDataSource {
-  Future<List<SprintModel>> getAllSprints();
-  Future<List<SprintModel>> getSprintsByProject(int projectId);
-  Future<SprintModel> getSprintById(int id);
-  Future<SprintModel> createSprint(SprintModel sprint);
-  Future<SprintModel> updateSprint(SprintModel sprint);
-  Future<void> deleteSprint(int id);
-}
-
-class SprintLocalDataSourceImpl implements SprintLocalDataSource {
+class SprintLocalDataSource implements SprintDataSource {
   final DatabaseHelper databaseHelper;
 
-  SprintLocalDataSourceImpl({required this.databaseHelper});
+  SprintLocalDataSource({required this.databaseHelper});
+
+  static const _selectWithCounts =
+      '''
+    SELECT s.*,
+      (SELECT COUNT(*) FROM ${AppConstants.tableTasks} t WHERE t.sprint_id = s.id) AS total_tasks,
+      (SELECT COUNT(*) FROM ${AppConstants.tableTasks} t
+        WHERE t.sprint_id = s.id AND t.status = '${TaskStatus.done}') AS completed_tasks
+    FROM ${AppConstants.tableSprints} s
+  ''';
 
   @override
-  Future<List<SprintModel>> getAllSprints() async {
+  Future<List<Sprint>> getSprintsByProject(int projectId) async {
     final db = await databaseHelper.database;
-    final results = await db.rawQuery('''
-      SELECT s.*, 
-             (SELECT COUNT(*) FROM ${AppConstants.tableTasks} t WHERE t.sprint_id = s.id) as total_tasks,
-             (SELECT COUNT(*) FROM ${AppConstants.tableTasks} t WHERE t.sprint_id = s.id AND t.status = 'Done') as completed_tasks
-      FROM ${AppConstants.tableSprints} s
-    ''');
-    return results.map((map) => SprintModel.fromMap(map)).toList();
-  }
-
-  @override
-  Future<List<SprintModel>> getSprintsByProject(int projectId) async {
-    final db = await databaseHelper.database;
-    final results = await db.rawQuery('''
-      SELECT s.*, 
-             (SELECT COUNT(*) FROM ${AppConstants.tableTasks} t WHERE t.sprint_id = s.id) as total_tasks,
-             (SELECT COUNT(*) FROM ${AppConstants.tableTasks} t WHERE t.sprint_id = s.id AND t.status = 'Done') as completed_tasks
-      FROM ${AppConstants.tableSprints} s
-      WHERE s.project_id = ?
-    ''', [projectId]);
-    return results.map((map) => SprintModel.fromMap(map)).toList();
-  }
-
-  @override
-  Future<SprintModel> getSprintById(int id) async {
-    final db = await databaseHelper.database;
-    final results = await db.rawQuery('''
-      SELECT s.*, 
-             (SELECT COUNT(*) FROM ${AppConstants.tableTasks} t WHERE t.sprint_id = s.id) as total_tasks,
-             (SELECT COUNT(*) FROM ${AppConstants.tableTasks} t WHERE t.sprint_id = s.id AND t.status = 'Done') as completed_tasks
-      FROM ${AppConstants.tableSprints} s
-      WHERE s.id = ?
-    ''', [id]);
-    return SprintModel.fromMap(results.first);
-  }
-
-  @override
-  Future<SprintModel> createSprint(SprintModel sprint) async {
-    final db = await databaseHelper.database;
-    final id = await db.insert(AppConstants.tableSprints, sprint.toMap());
-    return SprintModel(
-      id: id,
-      projectId: sprint.projectId,
-      name: sprint.name,
-      startDate: sprint.startDate,
-      endDate: sprint.endDate,
-      status: sprint.status,
+    final rows = await db.rawQuery(
+      '$_selectWithCounts WHERE s.project_id = ? ORDER BY s.start_date, s.id',
+      [projectId],
     );
+    return rows.map(SprintModel.fromMap).toList();
   }
 
   @override
-  Future<SprintModel> updateSprint(SprintModel sprint) async {
+  Future<Sprint> getSprintById(int id) async {
     final db = await databaseHelper.database;
-    await db.update(
+    final rows = await db.rawQuery('$_selectWithCounts WHERE s.id = ?', [id]);
+    if (rows.isEmpty) throw NotFoundException('Sprint $id not found');
+    return SprintModel.fromMap(rows.first);
+  }
+
+  @override
+  Future<Sprint> createSprint(Sprint sprint) async {
+    final db = await databaseHelper.database;
+    final id = await db.insert(
       AppConstants.tableSprints,
-      sprint.toMap(),
+      SprintModel.toMap(sprint),
+    );
+    return sprint.copyWith(id: id);
+  }
+
+  @override
+  Future<Sprint> updateSprint(Sprint sprint) async {
+    final db = await databaseHelper.database;
+    final count = await db.update(
+      AppConstants.tableSprints,
+      SprintModel.toMap(sprint),
       where: 'id = ?',
       whereArgs: [sprint.id],
     );
+    if (count == 0) throw NotFoundException('Sprint ${sprint.id} not found');
     return sprint;
   }
 
   @override
   Future<void> deleteSprint(int id) async {
     final db = await databaseHelper.database;
+    // ON DELETE SET NULL on tasks.sprint_id moves the tasks to the backlog.
     await db.delete(
       AppConstants.tableSprints,
       where: 'id = ?',

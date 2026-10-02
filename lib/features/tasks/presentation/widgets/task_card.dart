@@ -1,243 +1,124 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
+
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/string_helper.dart';
+import '../../../../core/widgets/avatar_initials.dart';
+import '../../../../core/widgets/pill.dart';
 import '../../domain/entities/task.dart';
+import 'work_item_visuals.dart';
 
+/// Board card. Advanced mode shows type, story points and tags.
 class TaskCard extends StatelessWidget {
   final Task task;
-  final VoidCallback onTap;
-  final VoidCallback onDelete;
-  final bool showMetadata;
-  final bool showDelete;
+  final String projectKey;
+  final bool advanced;
+  final VoidCallback? onTap;
+  final VoidCallback? onMore;
 
   const TaskCard({
     super.key,
     required this.task,
-    required this.onTap,
-    required this.onDelete,
-    this.showMetadata = true,
-    this.showDelete = true,
+    required this.projectKey,
+    required this.advanced,
+    this.onTap,
+    this.onMore,
   });
-
-  Color _getPriorityColor() {
-    switch (task.priority) {
-      case 'High':
-        return AppColors.error;
-      case 'Medium':
-        return AppColors.warning;
-      case 'Low':
-        return AppColors.success;
-      default:
-        return AppColors.textMuted;
-    }
-  }
-
-  String _getPriorityLabel(S s) {
-    switch (task.priority) {
-      case 'High':
-        return s.high;
-      case 'Medium':
-        return s.medium;
-      case 'Low':
-        return s.low;
-      default:
-        return task.priority;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    final s = S(context);
     final theme = Theme.of(context);
-    final priorityColor = _getPriorityColor();
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppPadding.s),
-      decoration: BoxDecoration(
-        color: theme.cardTheme.color,
-        borderRadius: BorderRadius.circular(AppRadius.m),
-        // border: theme.cardTheme.shape is RoundedRectangleBorder
-        //     ? (theme.cardTheme.shape as RoundedRectangleBorder).side
-        //     : null,
-        boxShadow: theme.brightness == Brightness.light
-            ? [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ]
-            : null,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(AppRadius.m),
-          child: Padding(
-            padding: const EdgeInsets.all(AppPadding.m),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 4,
-                      height: 30,
-                      decoration: BoxDecoration(
-                        color: priorityColor,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    const SizedBox(width: AppPadding.s),
-                    Expanded(
+    final secondary = theme.textTheme.bodySmall;
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 4, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 2),
                       child: Text(
                         task.title,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          decoration: task.isDone
+                              ? TextDecoration.lineThrough
+                              : null,
+                          color: task.isDone ? secondary?.color : null,
                         ),
                       ),
                     ),
-                    const SizedBox(width: AppPadding.s),
-                    if (showDelete)
-                      IconButton(
-                        icon: const Icon(
-                          Icons.delete_outline_rounded,
-                          size: 18,
-                          color: AppColors.textMuted,
-                        ),
-                        onPressed: onDelete,
+                  ),
+                  if (onMore != null)
+                    SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: IconButton(
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
+                        iconSize: 18,
+                        tooltip: S(context).more,
+                        onPressed: onMore,
+                        icon: const Icon(Icons.more_horiz_rounded),
                       ),
+                    ),
+                ],
+              ),
+              if (advanced && task.tags.isNotEmpty) ...[
+                const SizedBox(height: AppPadding.s),
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: [
+                    for (final tag in task.tags.take(3))
+                      Pill(label: tag, color: theme.colorScheme.primary),
                   ],
                 ),
-                if (task.description.isNotEmpty) ...[
-                  const SizedBox(height: AppPadding.s),
-                  Text(
-                    task.description,
-                    style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                if (showMetadata &&
-                    (task.assignee.isNotEmpty || task.tags.isNotEmpty)) ...[
-                  const SizedBox(height: AppPadding.s),
-                  Wrap(
-                    spacing: AppPadding.xs,
-                    runSpacing: AppPadding.xs,
-                    children: [
-                      if (task.assignee.isNotEmpty)
-                        _buildChip(
-                          icon: Icons.person_outline_rounded,
-                          label: task.assignee,
-                          color: theme.primaryColor,
-                        ),
-                      ...task.tags.map(
-                        (tag) => _buildChip(
-                          icon: Icons.sell_outlined,
-                          label: tag,
-                          color: AppColors.textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-                const SizedBox(height: AppPadding.m),
-                if (showMetadata)
-                  Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Flexible(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppPadding.s,
-                          vertical: AppPadding.xs,
-                        ),
-                        decoration: BoxDecoration(
-                          color: priorityColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(AppRadius.s),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.flag_rounded,
-                              size: 10,
-                              color: priorityColor,
-                            ),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                _getPriorityLabel(s).toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: priorityColor,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppPadding.s),
-                    const Icon(
-                      Icons.drag_indicator_rounded,
-                      size: 16,
-                      color: AppColors.textMuted,
-                    ),
-                  ],
-                )
-                else
-                  const Align(
-                    alignment: Alignment.centerRight,
-                    child: Icon(
-                      Icons.drag_indicator_rounded,
-                      size: 16,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
               ],
-            ),
+              const SizedBox(height: AppPadding.s),
+              Padding(
+                padding: const EdgeInsetsDirectional.only(end: 8),
+                child: Row(
+                  children: [
+                    if (advanced) ...[
+                      WorkItemTypeIcon(type: task.type),
+                      const SizedBox(width: 6),
+                    ],
+                    Flexible(
+                      child: Text(
+                        task.keyFor(projectKey),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: secondary?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          decoration: task.isDone
+                              ? TextDecoration.lineThrough
+                              : null,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    PriorityIcon(priority: task.priority, size: 16),
+                    if (advanced && task.storyPoints != null) ...[
+                      const SizedBox(width: 4),
+                      StoryPointsBadge(points: task.storyPoints!),
+                    ],
+                    if (task.assignee.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      AvatarInitials(name: task.assignee, size: 22),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildChip({
-    required IconData icon,
-    required String label,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppPadding.s,
-        vertical: AppPadding.xs,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(AppRadius.s),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 11, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
       ),
     );
   }

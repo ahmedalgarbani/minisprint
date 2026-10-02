@@ -1,75 +1,72 @@
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/database/database_helper.dart';
+import '../../../../core/error/exceptions.dart';
+import '../../domain/entities/task.dart';
 import '../models/task_model.dart';
+import 'task_datasource.dart';
 
-abstract class TaskLocalDataSource {
-  Future<List<TaskModel>> getAllTasks();
-  Future<List<TaskModel>> getTasksBySprint(int sprintId);
-  Future<TaskModel> getTaskById(int id);
-  Future<TaskModel> createTask(TaskModel task);
-  Future<TaskModel> updateTask(TaskModel task);
-  Future<void> deleteTask(int id);
-}
-
-class TaskLocalDataSourceImpl implements TaskLocalDataSource {
+class TaskLocalDataSource implements TaskDataSource {
   final DatabaseHelper databaseHelper;
 
-  TaskLocalDataSourceImpl({required this.databaseHelper});
+  TaskLocalDataSource({required this.databaseHelper});
 
   @override
-  Future<List<TaskModel>> getAllTasks() async {
+  Future<List<Task>> getTasksByProject(int projectId) async {
     final db = await databaseHelper.database;
-    final results = await db.query(AppConstants.tableTasks);
-    return results.map((map) => TaskModel.fromMap(map)).toList();
+    final rows = await db.query(
+      AppConstants.tableTasks,
+      where: 'project_id = ?',
+      whereArgs: [projectId],
+      orderBy: 'id',
+    );
+    return rows.map(TaskModel.fromMap).toList();
   }
 
   @override
-  Future<List<TaskModel>> getTasksBySprint(int sprintId) async {
+  Future<List<Task>> getTasksBySprint(int sprintId) async {
     final db = await databaseHelper.database;
-    final maps = await db.query(
+    final rows = await db.query(
       AppConstants.tableTasks,
       where: 'sprint_id = ?',
       whereArgs: [sprintId],
+      orderBy: 'id',
     );
-    return maps.map((map) => TaskModel.fromMap(map)).toList();
+    return rows.map(TaskModel.fromMap).toList();
   }
 
   @override
-  Future<TaskModel> getTaskById(int id) async {
+  Future<Task> getTaskById(int id) async {
     final db = await databaseHelper.database;
-    final maps = await db.query(
+    final rows = await db.query(
       AppConstants.tableTasks,
       where: 'id = ?',
       whereArgs: [id],
     );
-    return TaskModel.fromMap(maps.first);
+    if (rows.isEmpty) throw NotFoundException('Task $id not found');
+    return TaskModel.fromMap(rows.first);
   }
 
   @override
-  Future<TaskModel> createTask(TaskModel task) async {
+  Future<Task> createTask(Task task) async {
     final db = await databaseHelper.database;
-    final id = await db.insert(AppConstants.tableTasks, task.toMap());
-    return TaskModel(
-      id: id,
-      sprintId: task.sprintId,
-      title: task.title,
-      description: task.description,
-      status: task.status,
-      priority: task.priority,
-      assignee: task.assignee,
-      tags: task.tags,
-    );
-  }
-
-  @override
-  Future<TaskModel> updateTask(TaskModel task) async {
-    final db = await databaseHelper.database;
-    await db.update(
+    final stamped = task.copyWith(createdAt: task.createdAt ?? DateTime.now());
+    final id = await db.insert(
       AppConstants.tableTasks,
-      task.toMap(),
+      TaskModel.toMap(stamped),
+    );
+    return stamped.copyWith(id: id);
+  }
+
+  @override
+  Future<Task> updateTask(Task task) async {
+    final db = await databaseHelper.database;
+    final count = await db.update(
+      AppConstants.tableTasks,
+      TaskModel.toMap(task),
       where: 'id = ?',
       whereArgs: [task.id],
     );
+    if (count == 0) throw NotFoundException('Task ${task.id} not found');
     return task;
   }
 

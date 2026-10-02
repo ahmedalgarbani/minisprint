@@ -1,8 +1,38 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
+
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/string_helper.dart';
 import '../../domain/entities/project.dart';
+
+class ProjectKeyAvatar extends StatelessWidget {
+  final Project project;
+  final double size;
+
+  const ProjectKeyAvatar({super.key, required this.project, this.size = 40});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(AppRadius.s),
+      ),
+      child: Text(
+        project.displayKey.characters.take(3).toString(),
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w800,
+          fontSize: size * 0.32,
+        ),
+      ),
+    );
+  }
+}
 
 class ProjectCard extends StatelessWidget {
   final Project project;
@@ -22,147 +52,107 @@ class ProjectCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = S(context);
     final theme = Theme.of(context);
-
-    return Container(
-      margin: const EdgeInsets.symmetric(
-        horizontal: AppPadding.m,
-        vertical: AppPadding.s,
-      ),
-      decoration: BoxDecoration(
-        color: theme.cardTheme.color,
-        borderRadius: BorderRadius.circular(AppRadius.l),
-        // border: theme.cardTheme.shape is RoundedRectangleBorder
-        //     ? (theme.cardTheme.shape as RoundedRectangleBorder).side
-        //     : null,
-        boxShadow: theme.brightness == Brightness.light
-            ? [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ]
-            : null,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(AppRadius.l),
-          child: Padding(
-            padding: const EdgeInsets.all(AppPadding.m),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 4, 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ProjectKeyAvatar(project: project),
+              const SizedBox(width: AppPadding.m),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(AppPadding.s),
-                      decoration: BoxDecoration(
-                        color: theme.primaryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(AppRadius.s),
-                      ),
-                      child: Icon(
-                        Icons.folder_rounded,
-                        color: theme.primaryColor,
-                        size: 20,
-                      ),
+                    Text(
+                      project.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium,
                     ),
-                    PopupMenuButton<String>(
-                      icon: Icon(
-                        Icons.more_vert_rounded,
-                        color: theme.textTheme.bodySmall?.color,
+                    if (project.description.isNotEmpty) ...[
+                      const SizedBox(height: AppPadding.xs),
+                      Text(
+                        project.description,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium,
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppRadius.m),
-                      ),
-                      onSelected: (value) {
-                        if (value == 'edit') onEdit();
-                        if (value == 'delete') onDelete();
-                      },
-                      itemBuilder: (context) => [
-                        PopupMenuItem(
-                          value: 'edit',
-                          child: Row(
-                            children: [
-                              const Icon(Icons.edit_rounded, size: 20),
-                              const SizedBox(width: AppPadding.s),
-                              Text(s.edit),
-                            ],
-                          ),
+                    ],
+                    const SizedBox(height: AppPadding.s),
+                    Wrap(
+                      spacing: AppPadding.m,
+                      children: [
+                        _Stat(
+                          icon: Icons.key_rounded,
+                          label: project.displayKey,
                         ),
-                        PopupMenuItem(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.delete_rounded,
-                                size: 20,
-                                color: AppColors.error,
-                              ),
-                              const SizedBox(width: AppPadding.s),
-                              Text(
-                                s.delete,
-                                style: const TextStyle(color: AppColors.error),
-                              ),
-                            ],
-                          ),
+                        _Stat(
+                          icon: Icons.directions_run_rounded,
+                          label: s.sprintCountLabel(project.sprintCount),
+                        ),
+                        _Stat(
+                          icon: Icons.task_alt_rounded,
+                          label: s.taskCountLabel(project.taskCount),
                         ),
                       ],
                     ),
                   ],
                 ),
-                const SizedBox(height: AppPadding.m),
-                Text(project.name, style: theme.textTheme.titleLarge),
-                if (project.description.isNotEmpty) ...[
-                  const SizedBox(height: AppPadding.xs),
-                  Text(
-                    project.description,
-                    style: theme.textTheme.bodyMedium,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+              ),
+              PopupMenuButton<VoidCallback>(
+                tooltip: s.more,
+                onSelected: (action) => action(),
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: onEdit,
+                    child: ListTile(
+                      leading: const Icon(Icons.edit_outlined),
+                      title: Text(s.edit),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: onDelete,
+                    child: ListTile(
+                      leading: const Icon(
+                        Icons.delete_outline,
+                        color: AppColors.error,
+                      ),
+                      title: Text(
+                        s.delete,
+                        style: const TextStyle(color: AppColors.error),
+                      ),
+                    ),
                   ),
                 ],
-                const SizedBox(height: AppPadding.m),
-                Row(
-                  children: [
-                    _buildTag(
-                      context,
-                      s.sprintCountLabel(project.sprintCount),
-                      theme.primaryColor,
-                    ),
-                    const SizedBox(width: AppPadding.s),
-                    _buildTag(
-                      context,
-                      s.taskCountLabel(project.taskCount),
-                      theme.colorScheme.secondary,
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildTag(BuildContext context, String text, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+class _Stat extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _Stat({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.bodySmall;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: style?.color),
+        const SizedBox(width: 4),
+        Text(label, style: style),
+      ],
     );
   }
 }

@@ -1,69 +1,58 @@
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/database/database_helper.dart';
+import '../../../../core/error/exceptions.dart';
+import '../../domain/entities/project.dart';
 import '../models/project_model.dart';
+import 'project_datasource.dart';
 
-abstract class ProjectLocalDataSource {
-  Future<List<ProjectModel>> getAllProjects();
-  Future<ProjectModel> getProjectById(int id);
-  Future<ProjectModel> createProject(ProjectModel project);
-  Future<ProjectModel> updateProject(ProjectModel project);
-  Future<void> deleteProject(int id);
-}
-
-class ProjectLocalDataSourceImpl implements ProjectLocalDataSource {
+class ProjectLocalDataSource implements ProjectDataSource {
   final DatabaseHelper databaseHelper;
 
-  ProjectLocalDataSourceImpl({required this.databaseHelper});
+  ProjectLocalDataSource({required this.databaseHelper});
+
+  static const _selectWithCounts =
+      '''
+    SELECT p.*,
+      (SELECT COUNT(*) FROM ${AppConstants.tableSprints} s WHERE s.project_id = p.id) AS sprint_count,
+      (SELECT COUNT(*) FROM ${AppConstants.tableTasks} t WHERE t.project_id = p.id) AS task_count
+    FROM ${AppConstants.tableProjects} p
+  ''';
 
   @override
-  Future<List<ProjectModel>> getAllProjects() async {
+  Future<List<Project>> getAllProjects() async {
     final db = await databaseHelper.database;
-    final results = await db.rawQuery('''
-      SELECT p.*, 
-             (SELECT COUNT(*) FROM ${AppConstants.tableSprints} s WHERE s.project_id = p.id) as sprint_count,
-             (SELECT COUNT(*) FROM ${AppConstants.tableTasks} t 
-              JOIN ${AppConstants.tableSprints} s ON s.id = t.sprint_id 
-              WHERE s.project_id = p.id) as task_count
-      FROM ${AppConstants.tableProjects} p
-    ''');
-    return results.map((map) => ProjectModel.fromMap(map)).toList();
+    final rows = await db.rawQuery('$_selectWithCounts ORDER BY p.id DESC');
+    return rows.map(ProjectModel.fromMap).toList();
   }
 
   @override
-  Future<ProjectModel> getProjectById(int id) async {
+  Future<Project> getProjectById(int id) async {
     final db = await databaseHelper.database;
-    final results = await db.rawQuery('''
-      SELECT p.*, 
-             (SELECT COUNT(*) FROM ${AppConstants.tableSprints} s WHERE s.project_id = p.id) as sprint_count,
-             (SELECT COUNT(*) FROM ${AppConstants.tableTasks} t 
-              JOIN ${AppConstants.tableSprints} s ON s.id = t.sprint_id 
-              WHERE s.project_id = p.id) as task_count
-      FROM ${AppConstants.tableProjects} p
-      WHERE p.id = ?
-    ''', [id]);
-    return ProjectModel.fromMap(results.first);
+    final rows = await db.rawQuery('$_selectWithCounts WHERE p.id = ?', [id]);
+    if (rows.isEmpty) throw NotFoundException('Project $id not found');
+    return ProjectModel.fromMap(rows.first);
   }
 
   @override
-  Future<ProjectModel> createProject(ProjectModel project) async {
+  Future<Project> createProject(Project project) async {
     final db = await databaseHelper.database;
-    final id = await db.insert(AppConstants.tableProjects, project.toMap());
-    return ProjectModel(
-      id: id,
-      name: project.name,
-      description: project.description,
-    );
-  }
-
-  @override
-  Future<ProjectModel> updateProject(ProjectModel project) async {
-    final db = await databaseHelper.database;
-    await db.update(
+    final id = await db.insert(
       AppConstants.tableProjects,
-      project.toMap(),
+      ProjectModel.toMap(project),
+    );
+    return project.copyWith(id: id);
+  }
+
+  @override
+  Future<Project> updateProject(Project project) async {
+    final db = await databaseHelper.database;
+    final count = await db.update(
+      AppConstants.tableProjects,
+      ProjectModel.toMap(project),
       where: 'id = ?',
       whereArgs: [project.id],
     );
+    if (count == 0) throw NotFoundException('Project ${project.id} not found');
     return project;
   }
 

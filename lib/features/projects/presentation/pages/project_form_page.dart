@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../core/theme/app_colors.dart';
+import 'package:flutter/services.dart';
+
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/error/failure.dart';
 import '../../../../core/utils/string_helper.dart';
+import '../../../../core/widgets/feedback.dart';
 import '../../domain/entities/project.dart';
-import '../cubit/project_cubit.dart';
-import '../cubit/project_state.dart';
 
 class ProjectFormPage extends StatefulWidget {
   final Project? project;
+  final Future<Failure?> Function(Project project) onSubmit;
 
-  const ProjectFormPage({super.key, this.project});
+  const ProjectFormPage({super.key, this.project, required this.onSubmit});
 
   @override
   State<ProjectFormPage> createState() => _ProjectFormPageState();
@@ -18,23 +19,31 @@ class ProjectFormPage extends StatefulWidget {
 
 class _ProjectFormPageState extends State<ProjectFormPage> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _nameController;
-  late TextEditingController _descriptionController;
+  late final TextEditingController _nameController;
+  late final TextEditingController _keyController;
+  late final TextEditingController _descriptionController;
+  // Suggest a key from the name until the user types one.
+  late bool _keyEdited;
+  bool _saving = false;
 
-  bool get isEditing => widget.project != null;
+  bool get _isEditing => widget.project != null;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.project?.name ?? '');
+    final project = widget.project;
+    _nameController = TextEditingController(text: project?.name ?? '');
+    _keyController = TextEditingController(text: project?.displayKey ?? '');
     _descriptionController = TextEditingController(
-      text: widget.project?.description ?? '',
+      text: project?.description ?? '',
     );
+    _keyEdited = _isEditing;
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _keyController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
@@ -42,117 +51,94 @@ class _ProjectFormPageState extends State<ProjectFormPage> {
   @override
   Widget build(BuildContext context) {
     final s = S(context);
-    final theme = Theme.of(context);
-
-    return BlocListener<ProjectCubit, ProjectState>(
-      listener: (context, state) {
-        if (state is ProjectOperationSuccess) {
-          Navigator.pop(context);
-        } else if (state is ProjectError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: AppColors.error,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadius.m),
-              ),
-            ),
-          );
-        }
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(isEditing ? s.edit : s.addProject),
-          leading: IconButton(
-            icon: Icon(
-              s.isAr ? Icons.arrow_back_rounded : Icons.arrow_back_ios_new_rounded,
-            ),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ),
-        body: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(AppPadding.l),
-            children: [
-              Center(
-                child: Hero(
-                  tag: 'project_icon',
-                  child: Container(
-                    padding: const EdgeInsets.all(AppPadding.l),
-                    decoration: BoxDecoration(
-                      color: theme.primaryColor.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
+    return Scaffold(
+      appBar: AppBar(title: Text(_isEditing ? s.editProject : s.addProject)),
+      body: Form(
+        key: _formKey,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 640),
+            child: ListView(
+              padding: const EdgeInsets.all(AppPadding.m),
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  autofocus: !_isEditing,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(labelText: s.projectName),
+                  onChanged: (name) {
+                    if (!_keyEdited) {
+                      _keyController.text = Project.deriveKey(name);
+                    }
+                  },
+                  validator: (v) => v == null || v.trim().isEmpty
+                      ? s.pleaseEnterProjectName
+                      : null,
+                ),
+                const SizedBox(height: AppPadding.m),
+                TextFormField(
+                  controller: _keyController,
+                  maxLength: 6,
+                  textCapitalization: TextCapitalization.characters,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'[\p{L}\p{N}]', unicode: true),
                     ),
-                    child: Icon(
-                      Icons.folder_copy_rounded,
-                      size: 60,
-                      color: theme.primaryColor,
-                    ),
+                  ],
+                  decoration: InputDecoration(
+                    labelText: s.projectKey,
+                    helperText: s.projectKeyHelp,
+                  ),
+                  onChanged: (_) => _keyEdited = true,
+                ),
+                const SizedBox(height: AppPadding.m),
+                TextFormField(
+                  controller: _descriptionController,
+                  minLines: 3,
+                  maxLines: 6,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    labelText: '${s.description} (${s.optional})',
+                    alignLabelWithHint: true,
                   ),
                 ),
-              ),
-              const SizedBox(height: AppPadding.xl),
-              Text(
-                s.projectDetails,
-                style: theme.textTheme.titleLarge,
-              ),
-              const SizedBox(height: AppPadding.s),
-              Text(
-                s.fillInfo,
-                style: theme.textTheme.bodyMedium,
-              ),
-              const SizedBox(height: AppPadding.xl),
-              TextFormField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  hintText: s.projectName,
-                  prefixIcon: const Icon(Icons.title_rounded),
+                const SizedBox(height: AppPadding.xl),
+                FilledButton(
+                  onPressed: _saving ? null : _save,
+                  child: _saving
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(_isEditing ? s.save : s.create),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return s.isAr
-                        ? 'يرجى إدخال اسم المشروع'
-                        : 'Please enter a project name';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: AppPadding.m),
-              TextFormField(
-                controller: _descriptionController,
-                decoration: InputDecoration(
-                  hintText: s.description,
-                  prefixIcon: const Icon(Icons.description_rounded),
-                ),
-                maxLines: 4,
-              ),
-              const SizedBox(height: AppPadding.xxl),
-              ElevatedButton(
-                onPressed: _saveProject,
-                child: Text(isEditing ? s.save : s.addProject),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  void _saveProject() {
-    if (_formKey.currentState!.validate()) {
-      final cubit = context.read<ProjectCubit>();
-      if (isEditing) {
-        cubit.editProject(
-          widget.project!.copyWith(
-            name: _nameController.text,
-            description: _descriptionController.text,
-          ),
-        );
-      } else {
-        cubit.addProject(_nameController.text, _descriptionController.text);
-      }
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    final s = S(context);
+    final base = widget.project ?? const Project(name: '', description: '');
+    setState(() => _saving = true);
+    final failure = await widget.onSubmit(
+      base.copyWith(
+        name: _nameController.text,
+        key: _keyController.text,
+        description: _descriptionController.text,
+      ),
+    );
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (showOperationResult(context, failure, success: s.projectSaved)) {
+      Navigator.pop(context);
     }
   }
 }

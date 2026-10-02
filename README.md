@@ -1,196 +1,83 @@
-# 📱 MiniSprint – Offline Sprint & Task Manager
+# MiniSprint
 
-## 🧾 Overview
-MiniSprint is a lightweight, offline-first mobile app designed to manage projects, sprints, and tasks using a simple Agile workflow. It provides a clean and fast alternative to complex DevOps tools like Jira.
+A lightweight Agile work tracker inspired by Jira and Azure DevOps. It works
+fully offline, and its data layer can be switched to a REST backend.
 
----
+> **بالعربية:** MiniSprint أداة لإدارة المشاريع بأسلوب Jira / Azure DevOps:
+> قائمة مهام (Backlog)، تخطيط الدورات (Sprints)، لوحة Kanban، وتقارير.
+> تعمل بوضعين: **بسيط** و**متقدم**، وتدعم العربية والإنجليزية والوضع الداكن.
+> البيانات محلية (SQLite) افتراضياً، ويمكن التبديل إلى خادم API دون تعديل الواجهات
+> (انظر قسم «التبديل إلى الخادم» أدناه و`docs/API_CONTRACT.md`).
 
-# 🎯 Goals
-- Simple project management
-- Offline usage (no internet required)
-- Fast and lightweight
-- Agile-style workflow (Sprint + Tasks)
-- Easy for individuals and small teams
+## Workflow
 
----
+1. **Projects** – each project has a key (e.g. `MBA`) used in work item keys (`MBA-12`).
+2. **Backlog** – capture work, then plan it into sprints (Jira backlog /
+   Azure DevOps sprint planning). Quick-add items inline; move items between
+   sprints and the backlog from the item menu.
+3. **Sprints** – *Planned → Active → Completed*. One sprint is active per
+   project. Completing a sprint moves unfinished items back to the backlog.
+4. **Board** – Kanban board of the selected sprint. Long-press a card to drag
+   it, or use its `⋯` menu. Search by title, key, assignee or tag.
+5. **Reports** – sprint health (completion vs. time), status / type / priority
+   breakdowns, team workload and velocity.
 
-# 👥 User Type
-- Single user (local usage)
-- Optional future: team sync
+### Simple vs. Advanced mode (Settings → Work mode)
 
----
+| | Simple | Advanced |
+|---|---|---|
+| Board columns | To Do / In Progress / Done | Configurable: add, hide, reorder, WIP limits |
+| Work item fields | Title, description, status, priority, sprint | + type (story/task/bug), story points, assignee, tags |
+| Board tools | Search | + filters, swimlanes (priority / assignee / type), sorting |
+| Reports tab | – | ✓ |
 
-# 🧱 Core Features
+Switching modes never hides work: items whose status has no column (for
+example `Review` on the simple board) appear in the closest column.
 
-## 📁 1. Projects
-- Create project
-- Edit/Delete project
-- View all projects
+## Architecture
 
-**Fields:**
-- id
-- name
-- description
+Clean architecture per feature (`data` → `domain` → `presentation`), Cubit for
+state, `get_it` for DI, no code generation.
 
----
+```
+lib/
+  core/            config, DI, database, network, errors, theme, shared widgets
+  features/
+    projects/      projects + the project workspace (Board/Backlog/Reports shell)
+    sprints/       sprint lifecycle, backlog & planning page
+    tasks/         work items, board config, board view builder, board page
+    reports/       sprint report builder and dashboard
+    settings/      appearance, work mode, data source info, backup/restore
+```
 
-## 🏁 2. Sprints
-- Create multiple sprints per project
-- Track duration and status
+- Repositories depend on a `*DataSource` interface per feature, with a local
+  (`*LocalDataSource`, SQLite) and a remote (`*RemoteDataSource`, REST)
+  implementation. `lib/core/di/injection.dart` picks one from `AppConfig`.
+- Data sources throw `AppException`s; repositories convert them to typed
+  `Failure`s via `guard()`; the UI maps failures to localized messages.
+- Business rules (sprint lifecycle, validation, board filtering/grouping,
+  report metrics) are pure Dart in `domain/` and unit tested.
 
-**Fields:**
-- id
-- project_id
-- name (Sprint 1, Sprint 2...)
-- start_date
-- end_date
-- status (Active / Completed)
+### Switching to the server
 
----
+1. Implement the endpoints in [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md).
+2. Build with
+   `--dart-define=DATA_SOURCE=remote --dart-define=API_BASE_URL=https://…`.
+3. For authentication, pass an `authTokenProvider` to `HttpApiClient` in
+   `core/di/injection.dart` (read the token from secure storage — never
+   hardcode it).
 
-## ✅ 3. Tasks
-- Add tasks to a sprint
-- Update status
-- Set priority
+No UI, cubit or use case changes are needed.
 
-**Fields:**
-- id
-- sprint_id
-- title
-- description
-- status (To Do / In Progress / Done)
-- priority (High / Medium / Low)
+## Development
 
----
+```sh
+flutter pub get
+flutter analyze
+flutter test        # domain, data (real SQLite via sqflite_common_ffi), API client
+flutter run
+```
 
-## 📊 4. Kanban Board (Main Feature 🔥)
-
-### Columns:
-- 🟡 To Do  
-- 🔵 In Progress  
-- 🟢 Done  
-
-### Features:
-- Drag & Drop tasks between columns
-- Instant status update
-- Visual workflow
-
----
-
-## ⏱️ 5. Sprint Progress
-- Completion percentage
-- Tasks count per status
-- Visual progress bar
-
----
-
-## 🧠 6. Smart Feature (Optional)
-**Generate Tasks Button**
-- Auto-create tasks from a goal
-
----
-
-# 📱 Screens
-
-1. **Dashboard**
-   - List of projects
-   - Create new project
-
-2. **Project Details**
-   - List of sprints
-
-3. **Sprint List**
-   - Create / manage sprints
-
-4. **Kanban Board**
-   - Task management
-
-5. **Add/Edit Task**
-   - Create or update task
-
----
-
-# 🗄️ Database Schema
-
-## Project Table
-| Field        | Type   |
-|--------------|--------|
-| id           | int    |
-| name         | string |
-| description  | string |
-
----
-
-## Sprint Table
-| Field        | Type   |
-|--------------|--------|
-| id           | int    |
-| project_id   | int    |
-| name         | string |
-| start_date   | date   |
-| end_date     | date   |
-| status       | string |
-
----
-
-## Task Table
-| Field        | Type   |
-|--------------|--------|
-| id           | int    |
-| sprint_id    | int    |
-| title        | string |
-| description  | string |
-| status       | string |
-| priority     | string |
-
----
-
-# ⚙️ Tech Stack
-
-- **Frontend:** Flutter
-- **Database:** SQLite (sqflite)
-- **State Management:** Provider / Riverpod
-
----
-
-# 🚀 Future Enhancements
-
-- 🔔 Local notifications
-- ☁️ Cloud sync
-- 👥 Team collaboration
-- 📄 Export to PDF
-- 📊 Advanced analytics
-
----
-
-# 🎨 UI Design Principles
-
-- Minimal and clean
-- Fast navigation
-- No heavy graphics
-- Smooth drag & drop
-
----
-
-# 💡 App Name Ideas
-
-- MiniSprint
-- SprintLite
-- TaskFlow
-- DevTrack
-
----
-
-# ✅ Summary
-
-MiniSprint is:
-- ⚡ Fast
-- 🪶 Lightweight
-- 📴 Offline-first
-- 🧠 Agile-inspired
-
-A perfect starter app for developers who want a practical, real-world project without complexity.
-
-
-
-keytool -genkey -v -keystore D:\Flutter\unit_test\minisprint\upload-keystore.jks -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+Database schema version 3 adds project keys, sprint goals and a product
+backlog (tasks keep `project_id`; `sprint_id` is nullable). Existing v1/v2
+databases and v2 JSON backups are migrated automatically.
